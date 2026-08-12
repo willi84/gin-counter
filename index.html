@@ -226,7 +226,8 @@
 
 <script>
 (() => {
-  const DATA_URL = "./counter.json";
+  const DATA_URL = "https://train-isp-check.vercel.app/api/gin";
+  // const DATA_URL = "./counter.json";
   const FALLBACK = { gin: 12, rum: 7 };
 
   const el = {
@@ -313,6 +314,7 @@
       const response = await fetch(`${DATA_URL}?ts=${Date.now()}`, {
         cache: "no-store"
       });
+      console.log(response)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
