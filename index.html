@@ -1,371 +1,47 @@
 <!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sommernacht Gin-Counter</title>
+<html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#24102f"><link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png"><title>Gin Counter</title>
 <style>
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #050403;
-  }
-
-  body {
-    display: grid;
-    place-items: center;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-
-  .stage {
-    position: relative;
-    width: min(100vw, calc(100vh * 1.63095238));
-    height: min(100vh, calc(100vw / 1.63095238));
-    aspect-ratio: 1507 / 924;
-    background: url("./background.png") center / contain no-repeat;
-    overflow: hidden;
-  }
-
-  /* Dynamische Zahlen – exakt auf den leeren Schildflächen */
-  .counter {
-    position: absolute;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #171009;
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    letter-spacing: -0.035em;
-    font-size: clamp(40px, 5.1vw, 78px);
-    text-shadow: 0 1px 0 rgba(255,255,255,.10);
-    pointer-events: none;
-    transform-origin: center;
-  }
-
-  #ginCounter {
-    left: 5.55%;
-    top: 71.35%;
-    width: 11.15%;
-    height: 7.7%;
-    transform: rotate(-1.8deg) skewY(-0.18deg);
-  }
-
-  #rumCounter {
-    right: 5.00%;
-    top: 71.10%;
-    width: 11.70%;
-    height: 7.9%;
-    transform: rotate(1.55deg) skewY(0.16deg);
-  }
-
-  .counter.changed {
-    animation: pulse .45s ease-out;
-  }
-
-  @keyframes pulse {
-    0%   { scale: 1; }
-    45%  { scale: 1.08; }
-    100% { scale: 1; }
-  }
-
-  /* Dynamische Statusleiste – NICHT Teil des Hintergrundbildes */
-  .status {
-    position: absolute;
-    z-index: 10;
-    left: 1.55%;
-    right: 1.55%;
-    bottom: 0.75%;
-    height: 5.35%;
-    display: grid;
-    grid-template-columns:
-      auto
-      minmax(150px, 1fr)
-      auto
-      1px
-      auto
-      1px
-      auto
-      1px
-      auto;
-    align-items: center;
-    gap: clamp(5px, .65vw, 11px);
-    padding: 0 clamp(8px, .9vw, 14px);
-
-    color: #ead3a5;
-    background:
-      linear-gradient(180deg, rgba(19,12,7,.82), rgba(8,5,3,.90));
-    border: 1px solid rgba(202,135,47,.50);
-    border-radius: 4px;
-    box-shadow:
-      inset 0 1px 0 rgba(255,197,102,.08),
-      inset 0 -1px 0 rgba(0,0,0,.55);
-
-    font-size: clamp(8px, 1.0vw, 15px);
-    line-height: 1;
-    letter-spacing: .015em;
-    text-transform: uppercase;
-  }
-
-  .progress-track {
-    height: clamp(8px, .92vw, 14px);
-    overflow: hidden;
-    background: rgba(0,0,0,.42);
-    border: 1px solid rgba(218,160,76,.34);
-    border-radius: 2px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,.55);
-  }
-
-  .progress-value {
-    width: 100%;
-    height: 100%;
-    transform-origin: left center;
-    background:
-      repeating-linear-gradient(
-        -45deg,
-        #79a948 0 10px,
-        #689640 10px 20px
-      );
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
-  }
-
-  .sep {
-    width: 1px;
-    height: 52%;
-    min-height: 12px;
-    background: rgba(226,195,139,.50);
-  }
-
-  .meta {
-    display: flex;
-    align-items: center;
-    gap: .3em;
-    white-space: nowrap;
-  }
-
-  .seconds,
-  .value {
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .value {
-    color: #7dad49;
-    font-weight: 700;
-  }
-
-  select {
-    min-width: 7.6em;
-    padding: .12em .38em;
-    color: #ead3a5;
-    background: #130d08;
-    border: 1px solid rgba(211,143,52,.58);
-    border-radius: 3px;
-    font: inherit;
-    outline: none;
-  }
-
-  @media (max-width: 900px), (max-height: 560px) {
-    .optional { display: none; }
-    .status {
-      gap: 4px;
-      padding-left: 6px;
-      padding-right: 6px;
-    }
-  }
-</style>
-</head>
-<body>
-<main class="stage" aria-label="Sommernacht Gin- und Rum-Counter">
-  <div id="ginCounter" class="counter" aria-label="Gin Counter"></div>
-  <div id="rumCounter" class="counter" aria-label="Rum Counter"></div>
-
-  <section class="status" aria-label="Aktualisierungsstatus">
-    <span>Nächstes Update in</span>
-
-    <div class="progress-track">
-      <div id="progress" class="progress-value"></div>
-    </div>
-
-    <span id="seconds" class="seconds">-- Sek.</span>
-
-    <span class="sep"></span>
-
-    <span class="meta">
-      <span class="optional">Letztes Update:</span>
-      <span id="lastUpdate" class="value">--:--:--</span>
-    </span>
-
-    <span class="sep"></span>
-
-    <span class="meta">
-      <span class="optional">Heute:</span>
-      <span id="today" class="value">--.--.----</span>
-    </span>
-
-    <span class="sep"></span>
-
-    <span class="meta">
-      <span class="optional">Intervall:</span>
-      <select id="interval">
-        <option value="10">10 Sek.</option>
-        <option value="15">15 Sek.</option>
-        <option value="30" selected>30 Sek.</option>
-        <option value="60">60 Sek.</option>
-        <option value="120">2 Min.</option>
-      </select>
-    </span>
-  </section>
+:root{--bg:#120b18;--panel:#25172e;--text:#f6ead7;--muted:#cdbbcd;--accent:#d5a34a;--danger:#e48b8b;--ok:#9fcf78}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,#42204f 0,transparent 48%),linear-gradient(#160c1d,var(--bg));color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+body{min-height:100dvh;padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom))}
+.app{width:min(100%,520px);margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{margin:0;font:700 clamp(28px,8vw,42px) Georgia,serif}.subtitle{color:var(--muted);font-size:13px}.icon-btn{width:44px;height:44px;border-radius:14px;border:1px solid #ffffff22;background:#ffffff10;color:var(--text);font-size:20px}
+.status{min-height:24px;margin-bottom:12px;color:var(--muted);font-size:14px}.status.ok{color:var(--ok)}.status.error{color:var(--danger)}
+.cards{display:grid;gap:16px}.card{overflow:hidden;background:linear-gradient(#35223f,var(--panel));border:1px solid #ffffff18;border-radius:24px;box-shadow:0 14px 35px #0005}
+.card img{display:block;width:100%;height:clamp(165px,42vw,220px);object-fit:cover;object-position:center 52%}.content{padding:18px}.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.name{font:700 28px Georgia,serif}.count{font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}.counter-btn{min-height:64px;border-radius:18px;border:1px solid #ffffff20;font-size:34px;font-weight:700;touch-action:manipulation}
+.counter-btn:active{transform:scale(.97)}.counter-btn:disabled{opacity:.4}.minus{background:#ffffff10;color:var(--text)}.plus{background:var(--accent);color:#24180c}
+.refresh{width:100%;margin-top:16px;min-height:50px;border-radius:16px;border:1px solid #ffffff20;background:#ffffff10;color:var(--text);font:inherit}
+dialog{width:min(calc(100% - 32px),430px);border:1px solid #ffffff20;border-radius:22px;padding:0;background:#23142c;color:var(--text)}dialog::backdrop{background:#050307cc;backdrop-filter:blur(4px)}
+.dialog{padding:22px}.dialog h2{margin:0 0 8px}.dialog p{color:var(--muted);line-height:1.45}.dialog input{width:100%;height:52px;padding:0 14px;border-radius:14px;border:1px solid #ffffff25;background:#ffffff10;color:var(--text);font-size:20px}
+.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}.actions button{min-height:44px;padding:0 16px;border:0;border-radius:12px;font:inherit}.save{background:var(--accent);font-weight:700}.cancel{background:#ffffff10;color:var(--text)}
+@media(min-width:760px){.app{width:min(100%,860px)}.cards{grid-template-columns:1fr 1fr}.card img{height:250px}}
+</style></head>
+<body><main class="app">
+<header><div><h1>🍸 Gin Counter</h1><div class="subtitle">Sommernacht · Gin & Rum</div></div><button id="keyButton" class="icon-btn" aria-label="Schlüssel ändern">🔑</button></header>
+<div id="status" class="status">Lade aktuellen Stand …</div>
+<section class="cards">
+<article class="card"><img src="./gin.png" alt="Sommernacht Gin"><div class="content"><div class="head"><div class="name">Gin</div><div id="ginCount" class="count">–</div></div><div class="controls"><button class="counter-btn minus" data-drink="gin" data-change="-1">−</button><button class="counter-btn plus" data-drink="gin" data-change="1">+</button></div></div></article>
+<article class="card"><img src="./rum.png" alt="Sommernacht Rum"><div class="content"><div class="head"><div class="name">Rum</div><div id="rumCount" class="count">–</div></div><div class="controls"><button class="counter-btn minus" data-drink="rum" data-change="-1">−</button><button class="counter-btn plus" data-drink="rum" data-change="1">+</button></div></div></article>
+</section>
+<button id="refreshButton" class="refresh">↻ Stand aktualisieren</button>
 </main>
-
+<dialog id="keyDialog"><form id="keyForm"><div class="dialog"><h2>Zugang 🍸</h2><p>Geburtsjahr des GröTaZ (Größter Torsten aller Zeiten)?</p><input id="keyInput" type="number" inputmode="numeric" min="1900" max="2100" placeholder="JJJJ" required><div class="actions"><button id="cancelKey" class="cancel" type="button">Abbrechen</button><button class="save" type="submit">Speichern</button></div></div></form></dialog>
 <script>
-(() => {
-  const DATA_URL = "https://train-isp-check.vercel.app/api/gin";
-  // const DATA_URL = "./counter.json";
-  const FALLBACK = { gin: 12, rum: 7 };
-
-  const el = {
-    gin: document.getElementById("ginCounter"),
-    rum: document.getElementById("rumCounter"),
-    progress: document.getElementById("progress"),
-    seconds: document.getElementById("seconds"),
-    lastUpdate: document.getElementById("lastUpdate"),
-    today: document.getElementById("today"),
-    interval: document.getElementById("interval")
-  };
-
-  let values = { gin: null, rum: null };
-  let intervalSeconds = Number(el.interval.value);
-  let startedAt = performance.now();
-  let loading = false;
-
-  const fmtDate = date => new Intl.DateTimeFormat("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  }).format(date);
-
-  const fmtTime = date => new Intl.DateTimeFormat("de-DE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  }).format(date);
-
-  function animateNumber(node, from, to, duration = 650) {
-    if (from === null || from === to) {
-      node.textContent = String(to);
-      return;
-    }
-
-    const start = performance.now();
-
-    function frame(now) {
-      const p = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
-      node.textContent = String(Math.round(from + (to - from) * eased));
-
-      if (p < 1) {
-        requestAnimationFrame(frame);
-      }
-    }
-
-    requestAnimationFrame(frame);
-  }
-
-  function setCounter(key, rawValue) {
-    const next = Number(rawValue);
-
-    if (!Number.isFinite(next)) {
-      return;
-    }
-
-    const old = values[key];
-    animateNumber(el[key], old, next);
-
-    if (old !== null && old !== next) {
-      el[key].classList.remove("changed");
-      void el[key].offsetWidth;
-      el[key].classList.add("changed");
-    }
-
-    values[key] = next;
-  }
-
-  function apply(data) {
-    setCounter("gin", data.gin);
-    setCounter("rum", data.rum);
-    el.lastUpdate.textContent = fmtTime(new Date());
-  }
-
-  async function refresh() {
-    if (loading) {
-      return;
-    }
-
-    loading = true;
-
-    try {
-      const response = await fetch(`${DATA_URL}?ts=${Date.now()}`, {
-        cache: "no-store"
-      });
-      console.log(response)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      apply(await response.json());
-    } catch (error) {
-      // Beim direkten Öffnen per file:// blockieren Browser fetch().
-      // Dann bleibt die Anwendung mit den lokalen Startwerten funktionsfähig.
-      if (values.gin === null || values.rum === null) {
-        apply(FALLBACK);
-      }
-
-      console.warn("counter.json konnte nicht geladen werden:", error);
-    } finally {
-      loading = false;
-      startedAt = performance.now();
-    }
-  }
-
-  function tick(now) {
-    const elapsed = (now - startedAt) / 1000;
-    const remaining = Math.max(0, intervalSeconds - elapsed);
-    const ratio = Math.max(0, 1 - elapsed / intervalSeconds);
-
-    el.progress.style.transform = `scaleX(${ratio})`;
-    el.seconds.textContent = `${Math.ceil(remaining)} Sek.`;
-
-    if (elapsed >= intervalSeconds && !loading) {
-      refresh();
-    }
-
-    requestAnimationFrame(tick);
-  }
-
-  el.interval.addEventListener("change", () => {
-    intervalSeconds = Number(el.interval.value);
-    startedAt = performance.now();
-  });
-
-  function updateDate() {
-    el.today.textContent = fmtDate(new Date());
-  }
-
-  updateDate();
-  setInterval(updateDate, 60_000);
-
-  apply(FALLBACK);
-  refresh();
-  requestAnimationFrame(tick);
-})();
-</script>
-</body>
-</html>
+(()=>{const API="https://train-isp-check.vercel.app/api/drinks",STORE="gin-counter-key";
+const $=id=>document.getElementById(id),e={gin:$("ginCount"),rum:$("rumCount"),status:$("status"),refresh:$("refreshButton"),keyBtn:$("keyButton"),dlg:$("keyDialog"),form:$("keyForm"),input:$("keyInput"),cancel:$("cancelKey")},buttons=[...document.querySelectorAll(".counter-btn")];let resolver=null;
+function msg(t,c=""){e.status.textContent=t;e.status.className=("status "+c).trim()}function render(d){if(Number.isFinite(+d?.gin))e.gin.textContent=d.gin;if(Number.isFinite(+d?.rum))e.rum.textContent=d.rum}
+function busy(v){buttons.forEach(b=>b.disabled=v);e.refresh.disabled=v}
+async function load(){busy(true);msg("Lade aktuellen Stand …");try{const r=await fetch(API,{cache:"no-store"}),d=await r.json();if(!r.ok)throw new Error(d?.error||`HTTP ${r.status}`);render(d);msg("Aktueller Stand geladen.","ok")}catch(x){msg("Fehler: "+x.message,"error")}finally{busy(false)}}
+function ask(){e.input.value=localStorage.getItem(STORE)||"";e.dlg.showModal();setTimeout(()=>{e.input.focus();e.input.select()},0);return new Promise(r=>resolver=r)}
+async function key(){const v=localStorage.getItem(STORE);return v?Number(v):ask()}
+e.form.addEventListener("submit",ev=>{ev.preventDefault();const v=e.input.value.trim();if(!/^\d{4}$/.test(v)){e.input.setCustomValidity("Bitte ein vierstelliges Jahr eingeben.");e.input.reportValidity();return}e.input.setCustomValidity("");localStorage.setItem(STORE,v);e.dlg.close();resolver?.(Number(v));resolver=null});
+e.cancel.onclick=()=>{e.dlg.close();resolver?.(null);resolver=null};e.keyBtn.onclick=()=>ask();
+async function change(drink,delta){const k=await key();if(!k){msg("Änderung abgebrochen.");return}busy(true);msg((drink==="gin"?"Gin":"Rum")+" wird geändert …");try{const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({drink,change:delta,key:k})}),d=await r.json();if(!r.ok){if(r.status===401||r.status===403)localStorage.removeItem(STORE);throw new Error(d?.error||`HTTP ${r.status}`)}render(d);msg("Stand aktualisiert.","ok")}catch(x){msg("Fehler: "+x.message,"error")}finally{busy(false)}}
+buttons.forEach(b=>b.onclick=()=>change(b.dataset.drink,Number(b.dataset.change)));e.refresh.onclick=load;
+if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(console.error));load()})();
+</script></body></html>
