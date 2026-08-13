@@ -28,8 +28,13 @@
     height: min(100vh, calc(100vw / 1.63095238));
     aspect-ratio: 1507 / 924;
     background: url("./background.png") center / contain no-repeat;
-    overflow: hidden;
-  }
+
+    background: image-set(
+      url("./background.webp") type("image/webp"),
+      url("./background.png") type("image/png")
+    ) center / contain no-repeat;
+        overflow: hidden;
+      }
 
   /* Dynamische Zahlen – exakt auf den leeren Schildflächen */
   .counter {
@@ -172,6 +177,42 @@
     outline: none;
   }
 
+
+  /* Kleiner Konfetti-Effekt bei einer tatsächlichen Erhöhung */
+  .confetti-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    width: clamp(5px, .65vw, 10px);
+    height: clamp(8px, .95vw, 14px);
+    opacity: 0;
+    border-radius: 2px;
+    animation: confetti-fall 1.25s ease-out forwards;
+  }
+
+  @keyframes confetti-fall {
+    0% {
+      opacity: 1;
+      transform: translate3d(0, -8px, 0) rotate(0deg);
+    }
+    100% {
+      opacity: 0;
+      transform:
+        translate3d(var(--drift), clamp(80px, 13vh, 150px), 0)
+        rotate(var(--spin));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .confetti-piece { display: none; }
+  }
+
   @media (max-width: 900px), (max-height: 560px) {
     .optional { display: none; }
     .status {
@@ -186,6 +227,7 @@
 <main class="stage" aria-label="Sommernacht Gin- und Rum-Counter">
   <div id="ginCounter" class="counter" aria-label="Gin Counter"></div>
   <div id="rumCounter" class="counter" aria-label="Rum Counter"></div>
+  <div id="confettiLayer" class="confetti-layer" aria-hidden="true"></div>
 
   <section class="status" aria-label="Aktualisierungsstatus">
     <span>Nächstes Update in</span>
@@ -229,7 +271,6 @@
 (() => {
   const DATA_URL = "https://train-isp-check.vercel.app/api/gin";
   // const DATA_URL = "./counter.json";
-  const FALLBACK = { gin: 12, rum: 7 };
 
   const el = {
     gin: document.getElementById("ginCounter"),
@@ -238,7 +279,8 @@
     seconds: document.getElementById("seconds"),
     lastUpdate: document.getElementById("lastUpdate"),
     today: document.getElementById("today"),
-    interval: document.getElementById("interval")
+    interval: document.getElementById("interval"),
+    confetti: document.getElementById("confettiLayer")
   };
 
   let values = { gin: null, rum: null };
@@ -279,6 +321,51 @@
     requestAnimationFrame(frame);
   }
 
+  function celebrate(key) {
+    const counter = el[key];
+    const stage = counter.closest(".stage");
+    const stageRect = stage.getBoundingClientRect();
+    const counterRect = counter.getBoundingClientRect();
+
+    const centerX =
+      counterRect.left - stageRect.left + counterRect.width / 2;
+    const startY =
+      counterRect.top - stageRect.top + counterRect.height * 0.15;
+
+    const colors = [
+      "#f2c14e",
+      "#7dad49",
+      "#d45d9e",
+      "#8f6bd8",
+      "#f08a45"
+    ];
+
+    for (let i = 0; i < 20; i += 1) {
+      const piece = document.createElement("i");
+      piece.className = "confetti-piece";
+
+      const x = centerX + (Math.random() - 0.5) * counterRect.width * 0.8;
+      const delay = Math.random() * 0.18;
+      const drift = (Math.random() - 0.5) * 110;
+      const spin = (Math.random() * 720 - 360);
+
+      piece.style.left = `${x}px`;
+      piece.style.top = `${startY}px`;
+      piece.style.background = colors[
+        Math.floor(Math.random() * colors.length)
+      ];
+      piece.style.animationDelay = `${delay}s`;
+      piece.style.setProperty("--drift", `${drift}px`);
+      piece.style.setProperty("--spin", `${spin}deg`);
+
+      el.confetti.appendChild(piece);
+
+      piece.addEventListener("animationend", () => {
+        piece.remove();
+      }, { once: true });
+    }
+  }
+
   function setCounter(key, rawValue) {
     const next = Number(rawValue);
 
@@ -293,6 +380,10 @@
       el[key].classList.remove("changed");
       void el[key].offsetWidth;
       el[key].classList.add("changed");
+
+      if (next > old) {
+        celebrate(key);
+      }
     }
 
     values[key] = next;
@@ -323,13 +414,7 @@
 
       apply(await response.json());
     } catch (error) {
-      // Beim direkten Öffnen per file:// blockieren Browser fetch().
-      // Dann bleibt die Anwendung mit den lokalen Startwerten funktionsfähig.
-      if (values.gin === null || values.rum === null) {
-        apply(FALLBACK);
-      }
-
-      console.warn("counter.json konnte nicht geladen werden:", error);
+      console.warn("Counter konnte nicht geladen werden:", error);
     } finally {
       loading = false;
       startedAt = performance.now();
@@ -363,7 +448,6 @@
   updateDate();
   setInterval(updateDate, 60_000);
 
-  apply(FALLBACK);
   refresh();
   requestAnimationFrame(tick);
 })();
