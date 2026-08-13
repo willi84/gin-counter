@@ -72,14 +72,9 @@ function isIOS(){
 }
 
 function updateInstallButton(){
-  if(isInstalled()){
-    e.install.hidden=true;
-    return;
-  }
-
-  if(deferredInstallPrompt || isIOS()){
-    e.install.hidden=false;
-  }
+  // Solange die Seite nicht bereits als installierte Standalone-PWA läuft,
+  // bleibt der Installieren-Button sichtbar.
+  e.install.hidden=isInstalled();
 }
 
 window.addEventListener("beforeinstallprompt",event=>{
@@ -95,19 +90,24 @@ window.addEventListener("appinstalled",()=>{
 });
 
 e.install.addEventListener("click",async()=>{
-  if(isIOS() && !deferredInstallPrompt){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
+    updateInstallButton();
+    return;
+  }
+
+  if(isIOS()){
     alert("Auf iPhone/iPad: Teilen → Zum Home-Bildschirm.");
     return;
   }
 
-  if(!deferredInstallPrompt){
-    return;
-  }
-
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt=null;
-  updateInstallButton();
+  alert(
+    "Die direkte Installation ist in diesem Browser noch nicht verfügbar. " +
+    "Öffne das Browser-Menü und wähle „App installieren“ bzw. " +
+    "„Zum Startbildschirm hinzufügen“."
+  );
 });
 
 updateInstallButton();
