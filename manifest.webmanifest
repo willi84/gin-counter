@@ -16,5 +16,13 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "id": "./",
+  "scope": "./",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "description": "Mobiler Sommernacht Gin- und Rum-Counter"
 }

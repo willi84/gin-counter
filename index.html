@@ -33,7 +33,7 @@ dialog{width:min(calc(100% - 32px),430px);border:1px solid #ffffff20;border-radi
 <div><h1>🍸 Gin Counter</h1><div class="subtitle">Sommernacht · Gin & Rum</div></div>
 <div class="header-actions">
 <a class="dashboard-link" href="/dashboard">Dashboard</a>
-<button id="installButton" class="install-btn" type="button">⬇️ App</button>
+<button id="installButton" class="install-btn" type="button">📲 App</button>
 <button id="keyButton" class="icon-btn" type="button" aria-label="Schlüssel ändern">🔑</button>
 </div>
 </header>
@@ -125,6 +125,14 @@ function isIOS(){
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+function isSamsung(){
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
+
+function isBrave(){
+  return Boolean(navigator.brave);
+}
+
 const INSTALL_STORE="gin-counter-installed";
 
 function hasInstalledStatus(){
@@ -137,10 +145,17 @@ function hasInstalledStatus(){
 }
 
 function updateInstallButton(){
-  const installed=hasInstalledStatus();
+  if(hasInstalledStatus()){
+    e.install.textContent="✅ App";
+    e.install.title="PWA installiert";
+  }else if(deferredInstallPrompt){
+    e.install.textContent="⬇️ App";
+    e.install.title="PWA installieren";
+  }else{
+    e.install.textContent="📲 App";
+    e.install.title="Installationsoptionen";
+  }
 
-  e.install.textContent=installed ? "✅ App" : "⬇️ App";
-  e.install.title=installed ? "PWA installiert" : "PWA installieren";
   e.install.setAttribute("aria-label",e.install.title);
 }
 
@@ -148,6 +163,58 @@ window.addEventListener("beforeinstallprompt",event=>{
   event.preventDefault();
   deferredInstallPrompt=event;
   updateInstallButton();
+});
+
+window.addEventListener("appinstalled",()=>{
+  deferredInstallPrompt=null;
+  localStorage.setItem(INSTALL_STORE,"1");
+  updateInstallButton();
+  msg("✅ App installiert.","ok");
+});
+
+e.install.addEventListener("click",async()=>{
+  if(hasInstalledStatus()){
+    msg("✅ App ist installiert.","ok");
+    return;
+  }
+
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+
+    const result=await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
+
+    if(result?.outcome==="accepted"){
+      localStorage.setItem(INSTALL_STORE,"1");
+      msg("✅ Installation gestartet.","ok");
+    }
+
+    updateInstallButton();
+    return;
+  }
+
+  if(isIOS()){
+    alert("PWA installieren: Teilen → „Zum Home-Bildschirm“.");
+    return;
+  }
+
+  if(isSamsung()){
+    alert("Samsung Internet: Menü ☰ → „Seite hinzufügen zu“ → „Startbildschirm“ bzw. „App installieren“.");
+    return;
+  }
+
+  if(isBrave()){
+    alert("Brave: Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“. Falls der Punkt noch fehlt, Seite kurz neu laden.");
+    return;
+  }
+
+  alert(
+    "Der Browser hat den direkten Installationsdialog noch nicht freigegeben. " +
+    "Öffne das Browser-Menü ⋮ und wähle „App installieren“ bzw. „Zum Startbildschirm hinzufügen“."
+  );
+});
+
+updateInstallButton();
 });
 
 window.addEventListener("appinstalled",()=>{
@@ -190,5 +257,24 @@ e.install.addEventListener("click",async()=>{
 
 updateInstallButton();
 
-if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(console.error));load()})();
+if("serviceWorker" in navigator){
+  addEventListener("load",async()=>{
+    try{
+      const registration=await navigator.serviceWorker.register("./sw.js");
+      await registration.update();
+    }catch(error){
+      console.error("Service Worker:",error);
+    }
+  });
+
+  let refreshing=false;
+
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(refreshing) return;
+    refreshing=true;
+    location.reload();
+  });
+}
+
+load()})();
 </script></body></html>
