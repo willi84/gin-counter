@@ -9,7 +9,7 @@
 body{min-height:100dvh;padding:max(18px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom))}
 .app{width:min(100%,520px);margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .header-actions{display:flex;align-items:center;gap:8px}
-.dashboard-link,.install-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border-radius:14px;border:1px solid #ffffff22;background:#ffffff10;color:var(--text);font:inherit;text-decoration:none;white-space:nowrap}
+.dashboard-link,.install-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 10px;border-radius:14px;border:1px solid #ffffff22;background:#ffffff10;color:var(--text);font:inherit;text-decoration:none;white-space:nowrap}.install-btn{min-width:68px}
 .install-btn{cursor:pointer}
 .install-btn[hidden]{display:none}
 h1{margin:0;font:700 clamp(28px,8vw,42px) Georgia,serif}.subtitle{color:var(--muted);font-size:13px}.icon-btn{width:44px;height:44px;border-radius:14px;border:1px solid #ffffff22;background:#ffffff10;color:var(--text);font-size:20px}
@@ -33,7 +33,7 @@ dialog{width:min(calc(100% - 32px),430px);border:1px solid #ffffff20;border-radi
 <div><h1>🍸 Gin Counter</h1><div class="subtitle">Sommernacht · Gin & Rum</div></div>
 <div class="header-actions">
 <a class="dashboard-link" href="/dashboard">Dashboard</a>
-<button id="installButton" class="install-btn" type="button" hidden>Installieren</button>
+<button id="installButton" class="install-btn" type="button">⬇️ App</button>
 <button id="keyButton" class="icon-btn" type="button" aria-label="Schlüssel ändern">🔑</button>
 </div>
 </header>
@@ -59,7 +59,61 @@ function ask(){e.input.value=localStorage.getItem(STORE)||"";e.dlg.showModal();s
 async function key(){const v=localStorage.getItem(STORE);return v?Number(v):ask()}
 e.form.addEventListener("submit",ev=>{ev.preventDefault();const v=e.input.value.trim();if(!/^\d{4}$/.test(v)){e.input.setCustomValidity("Bitte ein vierstelliges Jahr eingeben.");e.input.reportValidity();return}e.input.setCustomValidity("");localStorage.setItem(STORE,v);e.dlg.close();resolver?.(Number(v));resolver=null});
 e.cancel.onclick=()=>{e.dlg.close();resolver?.(null);resolver=null};e.keyBtn.onclick=()=>ask();
-async function change(drink,delta){const k=await key();if(!k){msg("Änderung abgebrochen.");return}busy(true);msg((drink==="gin"?"Gin":"Rum")+" wird geändert …");try{const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({drink,change:delta,key:k})}),d=await r.json();if(!r.ok){if(r.status===401||r.status===403)localStorage.removeItem(STORE);throw new Error(d?.error||`HTTP ${r.status}`)}render(d);msg("Stand aktualisiert.","ok")}catch(x){msg("Fehler: "+x.message,"error")}finally{busy(false)}}
+async function change(drink,delta){
+  const k=await key();
+
+  if(!k){
+    msg("Änderung abgebrochen.");
+    return;
+  }
+
+  busy(true);
+  msg((drink==="gin"?"Gin":"Rum")+" wird geändert …");
+
+  try{
+    const r=await fetch(API,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({drink,change:delta,key:k})
+    });
+
+    let d={};
+
+    try{
+      d=await r.json();
+    }catch{
+      d={};
+    }
+
+    if(r.status===401||r.status===403){
+      localStorage.removeItem(STORE);
+
+      const errorMessage=d?.error||"Nicht berechtigt. Bitte Zugangsschlüssel prüfen.";
+      msg("⛔ "+errorMessage,"error");
+
+      busy(false);
+
+      const newKey=await ask();
+
+      if(newKey){
+        msg("🔑 Neuer Schlüssel gespeichert. Bitte Änderung erneut ausführen.");
+      }
+
+      return;
+    }
+
+    if(!r.ok){
+      throw new Error(d?.error||`HTTP ${r.status}`);
+    }
+
+    render(d);
+    msg("Stand aktualisiert.","ok");
+  }catch(x){
+    msg("Fehler: "+x.message,"error");
+  }finally{
+    busy(false);
+  }
+}
 buttons.forEach(b=>b.onclick=()=>change(b.dataset.drink,Number(b.dataset.change)));e.refresh.onclick=load;
 
 function isInstalled(){
@@ -71,10 +125,23 @@ function isIOS(){
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+const INSTALL_STORE="gin-counter-installed";
+
+function hasInstalledStatus(){
+  if(isInstalled()){
+    localStorage.setItem(INSTALL_STORE,"1");
+    return true;
+  }
+
+  return localStorage.getItem(INSTALL_STORE)==="1";
+}
+
 function updateInstallButton(){
-  // Solange die Seite nicht bereits als installierte Standalone-PWA läuft,
-  // bleibt der Installieren-Button sichtbar.
-  e.install.hidden=isInstalled();
+  const installed=hasInstalledStatus();
+
+  e.install.textContent=installed ? "✅ App" : "⬇️ App";
+  e.install.title=installed ? "PWA installiert" : "PWA installieren";
+  e.install.setAttribute("aria-label",e.install.title);
 }
 
 window.addEventListener("beforeinstallprompt",event=>{
@@ -85,15 +152,27 @@ window.addEventListener("beforeinstallprompt",event=>{
 
 window.addEventListener("appinstalled",()=>{
   deferredInstallPrompt=null;
-  e.install.hidden=true;
-  msg("App installiert.","ok");
+  localStorage.setItem(INSTALL_STORE,"1");
+  updateInstallButton();
+  msg("✅ App installiert.","ok");
 });
 
 e.install.addEventListener("click",async()=>{
+  if(hasInstalledStatus()){
+    msg("✅ App ist installiert.","ok");
+    return;
+  }
+
   if(deferredInstallPrompt){
     deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
+
+    const result=await deferredInstallPrompt.userChoice;
     deferredInstallPrompt=null;
+
+    if(result?.outcome==="accepted"){
+      localStorage.setItem(INSTALL_STORE,"1");
+    }
+
     updateInstallButton();
     return;
   }
@@ -104,8 +183,7 @@ e.install.addEventListener("click",async()=>{
   }
 
   alert(
-    "Die direkte Installation ist in diesem Browser noch nicht verfügbar. " +
-    "Öffne das Browser-Menü und wähle „App installieren“ bzw. " +
+    "Installation über das Browser-Menü: „App installieren“ bzw. " +
     "„Zum Startbildschirm hinzufügen“."
   );
 });
