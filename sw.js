@@ -1,4 +1,4 @@
-const CACHE = "gin-counter-v5";
+const CACHE = "gin-counter-v6";
 
 const STATIC_ASSETS = [
   "./manifest.webmanifest",

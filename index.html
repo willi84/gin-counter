@@ -50,231 +50,323 @@ dialog{width:min(calc(100% - 32px),430px);border:1px solid #ffffff20;border-radi
 </main>
 <dialog id="keyDialog"><form id="keyForm"><div class="dialog"><h2>Zugang 🍸</h2><p>Geburtsjahr des GröTaZ (Größter Torsten aller Zeiten)?</p><input id="keyInput" type="number" inputmode="numeric" min="1900" max="2100" placeholder="JJJJ" required><div class="actions"><button id="cancelKey" class="cancel" type="button">Abbrechen</button><button class="save" type="submit">Speichern</button></div></div></form></dialog>
 <script>
-(()=>{const API="https://train-isp-check.vercel.app/api/drinks",STORE="gin-counter-key";
-const $=id=>document.getElementById(id),e={gin:$("ginCount"),rum:$("rumCount"),status:$("status"),refresh:$("refreshButton"),keyBtn:$("keyButton"),install:$("installButton"),dlg:$("keyDialog"),form:$("keyForm"),input:$("keyInput"),cancel:$("cancelKey")},buttons=[...document.querySelectorAll(".counter-btn")];let resolver=null,deferredInstallPrompt=null;
-function msg(t,c=""){e.status.textContent=t;e.status.className=("status "+c).trim()}function render(d){if(Number.isFinite(+d?.gin))e.gin.textContent=d.gin;if(Number.isFinite(+d?.rum))e.rum.textContent=d.rum}
-function busy(v){buttons.forEach(b=>b.disabled=v);e.refresh.disabled=v}
-async function load(){busy(true);msg("Lade aktuellen Stand …");try{const r=await fetch(API,{cache:"no-store"}),d=await r.json();if(!r.ok)throw new Error(d?.error||`HTTP ${r.status}`);render(d);msg("Aktueller Stand geladen.","ok")}catch(x){msg("Fehler: "+x.message,"error")}finally{busy(false)}}
-function ask(){e.input.value=localStorage.getItem(STORE)||"";e.dlg.showModal();setTimeout(()=>{e.input.focus();e.input.select()},0);return new Promise(r=>resolver=r)}
-async function key(){const v=localStorage.getItem(STORE);return v?Number(v):ask()}
-e.form.addEventListener("submit",ev=>{ev.preventDefault();const v=e.input.value.trim();if(!/^\d{4}$/.test(v)){e.input.setCustomValidity("Bitte ein vierstelliges Jahr eingeben.");e.input.reportValidity();return}e.input.setCustomValidity("");localStorage.setItem(STORE,v);e.dlg.close();resolver?.(Number(v));resolver=null});
-e.cancel.onclick=()=>{e.dlg.close();resolver?.(null);resolver=null};e.keyBtn.onclick=()=>ask();
-async function change(drink,delta){
-  const k=await key();
 
-  if(!k){
-    msg("Änderung abgebrochen.");
-    return;
+(()=>{
+  const API="https://train-isp-check.vercel.app/api/drinks";
+  const STORE="gin-counter-key";
+  const INSTALL_STORE="gin-counter-installed";
+
+  const $=id=>document.getElementById(id);
+  const e={
+    gin:$("ginCount"),
+    rum:$("rumCount"),
+    status:$("status"),
+    refresh:$("refreshButton"),
+    keyBtn:$("keyButton"),
+    install:$("installButton"),
+    dlg:$("keyDialog"),
+    form:$("keyForm"),
+    input:$("keyInput"),
+    cancel:$("cancelKey")
+  };
+
+  const buttons=[...document.querySelectorAll(".counter-btn")];
+
+  let resolver=null;
+  let deferredInstallPrompt=null;
+
+  function msg(text,type=""){
+    e.status.textContent=text;
+    e.status.className=("status "+type).trim();
   }
 
-  busy(true);
-  msg((drink==="gin"?"Gin":"Rum")+" wird geändert …");
-
-  try{
-    const r=await fetch(API,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({drink,change:delta,key:k})
-    });
-
-    let d={};
-
-    try{
-      d=await r.json();
-    }catch{
-      d={};
+  function render(data){
+    if(Number.isFinite(Number(data?.gin))){
+      e.gin.textContent=String(data.gin);
     }
 
-    if(r.status===401||r.status===403){
-      localStorage.removeItem(STORE);
+    if(Number.isFinite(Number(data?.rum))){
+      e.rum.textContent=String(data.rum);
+    }
+  }
 
-      const errorMessage=d?.error||"Nicht berechtigt. Bitte Zugangsschlüssel prüfen.";
-      msg("⛔ "+errorMessage,"error");
+  function busy(value){
+    buttons.forEach(button=>button.disabled=value);
+    e.refresh.disabled=value;
+  }
 
-      busy(false);
+  async function load(){
+    busy(true);
+    msg("Lade aktuellen Stand …");
 
-      const newKey=await ask();
+    try{
+      const response=await fetch(API,{cache:"no-store"});
+      const data=await response.json();
 
-      if(newKey){
-        msg("🔑 Neuer Schlüssel gespeichert. Bitte Änderung erneut ausführen.");
+      if(!response.ok){
+        throw new Error(data?.error||`HTTP ${response.status}`);
       }
 
+      render(data);
+      msg("Aktueller Stand geladen.","ok");
+    }catch(error){
+      msg("Fehler: "+error.message,"error");
+    }finally{
+      busy(false);
+    }
+  }
+
+  function ask(){
+    e.input.value=localStorage.getItem(STORE)||"";
+    e.dlg.showModal();
+
+    setTimeout(()=>{
+      e.input.focus();
+      e.input.select();
+    },0);
+
+    return new Promise(resolve=>{
+      resolver=resolve;
+    });
+  }
+
+  async function key(){
+    const saved=localStorage.getItem(STORE);
+    return saved ? Number(saved) : ask();
+  }
+
+  e.form.addEventListener("submit",event=>{
+    event.preventDefault();
+
+    const value=e.input.value.trim();
+
+    if(!/^\d{4}$/.test(value)){
+      e.input.setCustomValidity("Bitte ein vierstelliges Jahr eingeben.");
+      e.input.reportValidity();
       return;
     }
 
-    if(!r.ok){
-      throw new Error(d?.error||`HTTP ${r.status}`);
+    e.input.setCustomValidity("");
+    localStorage.setItem(STORE,value);
+    e.dlg.close();
+
+    resolver?.(Number(value));
+    resolver=null;
+  });
+
+  e.cancel.addEventListener("click",()=>{
+    e.dlg.close();
+    resolver?.(null);
+    resolver=null;
+  });
+
+  e.keyBtn.addEventListener("click",()=>{
+    ask();
+  });
+
+  async function change(drink,delta){
+    const currentKey=await key();
+
+    if(!currentKey){
+      msg("Änderung abgebrochen.");
+      return;
     }
 
-    render(d);
-    msg("Stand aktualisiert.","ok");
-  }catch(x){
-    msg("Fehler: "+x.message,"error");
-  }finally{
-    busy(false);
-  }
-}
-buttons.forEach(b=>b.onclick=()=>change(b.dataset.drink,Number(b.dataset.change)));e.refresh.onclick=load;
+    busy(true);
+    msg((drink==="gin"?"Gin":"Rum")+" wird geändert …");
 
-function isInstalled(){
-  return window.matchMedia("(display-mode: standalone)").matches ||
-    window.navigator.standalone === true;
-}
-
-function isIOS(){
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function isSamsung(){
-  return /SamsungBrowser/i.test(navigator.userAgent);
-}
-
-function isBrave(){
-  return Boolean(navigator.brave);
-}
-
-const INSTALL_STORE="gin-counter-installed";
-
-function hasInstalledStatus(){
-  if(isInstalled()){
-    localStorage.setItem(INSTALL_STORE,"1");
-    return true;
-  }
-
-  return localStorage.getItem(INSTALL_STORE)==="1";
-}
-
-function updateInstallButton(){
-  if(hasInstalledStatus()){
-    e.install.textContent="✅ App";
-    e.install.title="PWA installiert";
-  }else if(deferredInstallPrompt){
-    e.install.textContent="⬇️ App";
-    e.install.title="PWA installieren";
-  }else{
-    e.install.textContent="📲 App";
-    e.install.title="Installationsoptionen";
-  }
-
-  e.install.setAttribute("aria-label",e.install.title);
-}
-
-window.addEventListener("beforeinstallprompt",event=>{
-  event.preventDefault();
-  deferredInstallPrompt=event;
-  updateInstallButton();
-});
-
-window.addEventListener("appinstalled",()=>{
-  deferredInstallPrompt=null;
-  localStorage.setItem(INSTALL_STORE,"1");
-  updateInstallButton();
-  msg("✅ App installiert.","ok");
-});
-
-e.install.addEventListener("click",async()=>{
-  if(hasInstalledStatus()){
-    msg("✅ App ist installiert.","ok");
-    return;
-  }
-
-  if(deferredInstallPrompt){
-    deferredInstallPrompt.prompt();
-
-    const result=await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt=null;
-
-    if(result?.outcome==="accepted"){
-      localStorage.setItem(INSTALL_STORE,"1");
-      msg("✅ Installation gestartet.","ok");
-    }
-
-    updateInstallButton();
-    return;
-  }
-
-  if(isIOS()){
-    alert("PWA installieren: Teilen → „Zum Home-Bildschirm“.");
-    return;
-  }
-
-  if(isSamsung()){
-    alert("Samsung Internet: Menü ☰ → „Seite hinzufügen zu“ → „Startbildschirm“ bzw. „App installieren“.");
-    return;
-  }
-
-  if(isBrave()){
-    alert("Brave: Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“. Falls der Punkt noch fehlt, Seite kurz neu laden.");
-    return;
-  }
-
-  alert(
-    "Der Browser hat den direkten Installationsdialog noch nicht freigegeben. " +
-    "Öffne das Browser-Menü ⋮ und wähle „App installieren“ bzw. „Zum Startbildschirm hinzufügen“."
-  );
-});
-
-updateInstallButton();
-});
-
-window.addEventListener("appinstalled",()=>{
-  deferredInstallPrompt=null;
-  localStorage.setItem(INSTALL_STORE,"1");
-  updateInstallButton();
-  msg("✅ App installiert.","ok");
-});
-
-e.install.addEventListener("click",async()=>{
-  if(hasInstalledStatus()){
-    msg("✅ App ist installiert.","ok");
-    return;
-  }
-
-  if(deferredInstallPrompt){
-    deferredInstallPrompt.prompt();
-
-    const result=await deferredInstallPrompt.userChoice;
-    deferredInstallPrompt=null;
-
-    if(result?.outcome==="accepted"){
-      localStorage.setItem(INSTALL_STORE,"1");
-    }
-
-    updateInstallButton();
-    return;
-  }
-
-  if(isIOS()){
-    alert("Auf iPhone/iPad: Teilen → Zum Home-Bildschirm.");
-    return;
-  }
-
-  alert(
-    "Installation über das Browser-Menü: „App installieren“ bzw. " +
-    "„Zum Startbildschirm hinzufügen“."
-  );
-});
-
-updateInstallButton();
-
-if("serviceWorker" in navigator){
-  addEventListener("load",async()=>{
     try{
-      const registration=await navigator.serviceWorker.register("./sw.js");
-      await registration.update();
+      const response=await fetch(API,{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          drink,
+          change:delta,
+          key:currentKey
+        })
+      });
+
+      let data={};
+
+      try{
+        data=await response.json();
+      }catch{
+        data={};
+      }
+
+      if(response.status===401||response.status===403){
+        localStorage.removeItem(STORE);
+
+        msg(
+          "⛔ "+(data?.error||"Nicht berechtigt. Bitte Zugangsschlüssel prüfen."),
+          "error"
+        );
+
+        busy(false);
+
+        const newKey=await ask();
+
+        if(newKey){
+          msg("🔑 Neuer Schlüssel gespeichert. Bitte Änderung erneut ausführen.");
+        }
+
+        return;
+      }
+
+      if(!response.ok){
+        throw new Error(data?.error||`HTTP ${response.status}`);
+      }
+
+      render(data);
+      msg("Stand aktualisiert.","ok");
     }catch(error){
-      console.error("Service Worker:",error);
+      msg("Fehler: "+error.message,"error");
+    }finally{
+      busy(false);
     }
+  }
+
+  buttons.forEach(button=>{
+    button.addEventListener("click",()=>{
+      change(
+        button.dataset.drink,
+        Number(button.dataset.change)
+      );
+    });
   });
 
-  let refreshing=false;
+  e.refresh.addEventListener("click",load);
 
-  navigator.serviceWorker.addEventListener("controllerchange",()=>{
-    if(refreshing) return;
-    refreshing=true;
-    location.reload();
+  function isInstalled(){
+    return window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone===true;
+  }
+
+  function isIOS(){
+    return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  }
+
+  function isSamsung(){
+    return /SamsungBrowser/i.test(navigator.userAgent);
+  }
+
+  function isBrave(){
+    return Boolean(navigator.brave);
+  }
+
+  function hasInstalledStatus(){
+    if(isInstalled()){
+      localStorage.setItem(INSTALL_STORE,"1");
+      return true;
+    }
+
+    return localStorage.getItem(INSTALL_STORE)==="1";
+  }
+
+  function updateInstallButton(){
+    if(hasInstalledStatus()){
+      e.install.textContent="✅ App";
+      e.install.title="PWA installiert";
+    }else if(deferredInstallPrompt){
+      e.install.textContent="⬇️ App";
+      e.install.title="PWA installieren";
+    }else{
+      e.install.textContent="📲 App";
+      e.install.title="Installationsoptionen";
+    }
+
+    e.install.setAttribute("aria-label",e.install.title);
+  }
+
+  window.addEventListener("beforeinstallprompt",event=>{
+    event.preventDefault();
+    deferredInstallPrompt=event;
+    updateInstallButton();
   });
-}
 
-load()})();
+  window.addEventListener("appinstalled",()=>{
+    deferredInstallPrompt=null;
+    localStorage.setItem(INSTALL_STORE,"1");
+    updateInstallButton();
+    msg("✅ App installiert.","ok");
+  });
+
+  e.install.addEventListener("click",async()=>{
+    if(hasInstalledStatus()){
+      msg("✅ App ist installiert.","ok");
+      return;
+    }
+
+    if(deferredInstallPrompt){
+      deferredInstallPrompt.prompt();
+
+      const result=await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt=null;
+
+      if(result?.outcome==="accepted"){
+        localStorage.setItem(INSTALL_STORE,"1");
+        msg("✅ Installation gestartet.","ok");
+      }
+
+      updateInstallButton();
+      return;
+    }
+
+    if(isIOS()){
+      alert("PWA installieren: Teilen → „Zum Home-Bildschirm“.");
+      return;
+    }
+
+    if(isSamsung()){
+      alert(
+        "Samsung Internet: Menü ☰ → „Seite hinzufügen zu“ → "+
+        "„Startbildschirm“ bzw. „App installieren“."
+      );
+      return;
+    }
+
+    if(isBrave()){
+      alert(
+        "Brave: Menü ⋮ → „App installieren“ bzw. "+
+        "„Zum Startbildschirm hinzufügen“."
+      );
+      return;
+    }
+
+    alert(
+      "Der Browser hat den direkten Installationsdialog noch nicht freigegeben. "+
+      "Öffne das Browser-Menü ⋮ und wähle „App installieren“ bzw. "+
+      "„Zum Startbildschirm hinzufügen“."
+    );
+  });
+
+  updateInstallButton();
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",async()=>{
+      try{
+        const registration=await navigator.serviceWorker.register("./sw.js");
+        await registration.update();
+      }catch(error){
+        console.error("Service Worker:",error);
+      }
+    });
+
+    let refreshing=false;
+
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      if(refreshing){
+        return;
+      }
+
+      refreshing=true;
+      location.reload();
+    });
+  }
+
+  load();
+})();
+
 </script></body></html>
